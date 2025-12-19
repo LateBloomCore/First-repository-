@@ -6,3 +6,9 @@
 ```bash
 python main.py
 ```
+
+## Testy
+
+```bash
+pytest -q
+```
