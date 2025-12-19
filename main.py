@@ -1,3 +1,4 @@
+import random
 import tkinter as tk
 
 
@@ -56,6 +57,31 @@ class PongGame:
 
         self.ball_velocity = [Config.BALL_SPEED_X, Config.BALL_SPEED_Y]
         self.pressed_keys: set[str] = set()
+        self.left_score = 0
+        self.right_score = 0
+        self.game_over = False
+
+        self.left_score_text = self.canvas.create_text(
+            Config.WIDTH * 0.25,
+            30,
+            text=str(self.left_score),
+            fill="white",
+            font=("Arial", 24, "bold"),
+        )
+        self.right_score_text = self.canvas.create_text(
+            Config.WIDTH * 0.75,
+            30,
+            text=str(self.right_score),
+            fill="white",
+            font=("Arial", 24, "bold"),
+        )
+        self.win_text = self.canvas.create_text(
+            Config.WIDTH / 2,
+            Config.HEIGHT / 2,
+            text="",
+            fill="white",
+            font=("Arial", 32, "bold"),
+        )
 
         self.root.bind("<KeyPress>", self.on_key_press)
         self.root.bind("<KeyRelease>", self.on_key_release)
@@ -66,6 +92,8 @@ class PongGame:
     def on_key_press(self, event: tk.Event) -> None:
         if event.keysym:
             self.pressed_keys.add(event.keysym)
+        if event.keysym == "space" and self.game_over:
+            self.reset_game()
 
     def on_key_release(self, event: tk.Event) -> None:
         if event.keysym in self.pressed_keys:
@@ -95,6 +123,8 @@ class PongGame:
         self.canvas.coords(paddle, x1, new_y1, x2, new_y2)
 
     def move_ball(self) -> None:
+        if self.game_over:
+            return
         vx, vy = self.ball_velocity
         self.canvas.move(self.ball, vx, vy)
         x1, y1, x2, y2 = self.canvas.coords(self.ball)
@@ -111,13 +141,32 @@ class PongGame:
             self.ball_velocity[0] *= -1
             self.canvas.move(self.ball, self.ball_velocity[0], 0)
 
-        if x2 < 0 or x1 > Config.WIDTH:
-            self.reset_ball()
+        if x2 < 0:
+            self.add_score("right")
+        elif x1 > Config.WIDTH:
+            self.add_score("left")
 
     def check_paddle_collision(self, paddle: int) -> bool:
         bx1, by1, bx2, by2 = self.canvas.coords(self.ball)
         px1, py1, px2, py2 = self.canvas.coords(paddle)
         return bx2 >= px1 and bx1 <= px2 and by2 >= py1 and by1 <= py2
+
+    def add_score(self, side: str) -> None:
+        if side == "left":
+            self.left_score += 1
+            self.canvas.itemconfig(self.left_score_text, text=str(self.left_score))
+        else:
+            self.right_score += 1
+            self.canvas.itemconfig(self.right_score_text, text=str(self.right_score))
+
+        if self.left_score >= 5 or self.right_score >= 5:
+            winner = "LEFT" if self.left_score >= 5 else "RIGHT"
+            self.canvas.itemconfig(self.win_text, text=f"{winner} WINS")
+            self.game_over = True
+            self.ball_velocity = [0, 0]
+            return
+
+        self.reset_ball()
 
     def reset_ball(self) -> None:
         self.canvas.coords(
@@ -127,10 +176,17 @@ class PongGame:
             Config.WIDTH / 2 + Config.BALL_RADIUS,
             Config.HEIGHT / 2 + Config.BALL_RADIUS,
         )
-        self.ball_velocity[0] *= -1
-        self.ball_velocity[1] = (
-            Config.BALL_SPEED_Y if self.ball_velocity[1] > 0 else -Config.BALL_SPEED_Y
-        )
+        self.ball_velocity[0] = random.choice([-1, 1]) * Config.BALL_SPEED_X
+        self.ball_velocity[1] = random.choice([-1, 1]) * Config.BALL_SPEED_Y
+
+    def reset_game(self) -> None:
+        self.left_score = 0
+        self.right_score = 0
+        self.canvas.itemconfig(self.left_score_text, text=str(self.left_score))
+        self.canvas.itemconfig(self.right_score_text, text=str(self.right_score))
+        self.canvas.itemconfig(self.win_text, text="")
+        self.game_over = False
+        self.reset_ball()
 
     def game_loop(self) -> None:
         if not self.running:
