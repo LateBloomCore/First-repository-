@@ -12,6 +12,10 @@ class Config:
     BALL_RADIUS = 10
     BALL_SPEED_X = 5
     BALL_SPEED_Y = 4
+    BOT_ENABLED = True
+    BOT_MAX_SPEED = 4
+    BOT_REACTION_FRAMES = 6
+    BOT_TARGET_JITTER = 16
 
 
 class PongGame:
@@ -60,6 +64,9 @@ class PongGame:
         self.left_score = 0
         self.right_score = 0
         self.game_over = False
+        self.bot_enabled = Config.BOT_ENABLED
+        self.bot_reaction_timer = 0
+        self.bot_target_y = Config.HEIGHT / 2
 
         self.left_score_text = self.canvas.create_text(
             Config.WIDTH * 0.25,
@@ -92,6 +99,8 @@ class PongGame:
     def on_key_press(self, event: tk.Event) -> None:
         if event.keysym:
             self.pressed_keys.add(event.keysym)
+        if event.keysym in ("b", "B"):
+            self.bot_enabled = not self.bot_enabled
         if event.keysym == "space" and self.game_over:
             self.reset_game()
 
@@ -106,10 +115,13 @@ class PongGame:
             left_dy -= Config.PADDLE_SPEED
         if "s" in self.pressed_keys or "S" in self.pressed_keys:
             left_dy += Config.PADDLE_SPEED
-        if "Up" in self.pressed_keys:
-            right_dy -= Config.PADDLE_SPEED
-        if "Down" in self.pressed_keys:
-            right_dy += Config.PADDLE_SPEED
+        if self.bot_enabled:
+            right_dy = self.get_bot_move()
+        else:
+            if "Up" in self.pressed_keys:
+                right_dy -= Config.PADDLE_SPEED
+            if "Down" in self.pressed_keys:
+                right_dy += Config.PADDLE_SPEED
 
         self.move_paddle(self.left_paddle, left_dy)
         self.move_paddle(self.right_paddle, right_dy)
@@ -121,6 +133,29 @@ class PongGame:
         new_y1 = max(0, y1 + dy)
         new_y2 = min(Config.HEIGHT, y2 + dy)
         self.canvas.coords(paddle, x1, new_y1, x2, new_y2)
+
+    def get_paddle_center(self, paddle: int) -> float:
+        _, y1, _, y2 = self.canvas.coords(paddle)
+        return (y1 + y2) / 2
+
+    def get_ball_center(self) -> float:
+        _, y1, _, y2 = self.canvas.coords(self.ball)
+        return (y1 + y2) / 2
+
+    def get_bot_move(self) -> float:
+        if self.bot_reaction_timer <= 0:
+            target = self.get_ball_center()
+            target += random.uniform(-Config.BOT_TARGET_JITTER, Config.BOT_TARGET_JITTER)
+            self.bot_target_y = max(0, min(Config.HEIGHT, target))
+            self.bot_reaction_timer = Config.BOT_REACTION_FRAMES
+        else:
+            self.bot_reaction_timer -= 1
+
+        paddle_center = self.get_paddle_center(self.right_paddle)
+        distance = self.bot_target_y - paddle_center
+        if abs(distance) <= Config.BOT_MAX_SPEED:
+            return distance
+        return Config.BOT_MAX_SPEED if distance > 0 else -Config.BOT_MAX_SPEED
 
     def move_ball(self) -> None:
         if self.game_over:
@@ -186,6 +221,8 @@ class PongGame:
         self.canvas.itemconfig(self.right_score_text, text=str(self.right_score))
         self.canvas.itemconfig(self.win_text, text="")
         self.game_over = False
+        self.bot_reaction_timer = 0
+        self.bot_target_y = Config.HEIGHT / 2
         self.reset_ball()
 
     def game_loop(self) -> None:
