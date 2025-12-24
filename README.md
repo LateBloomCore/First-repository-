@@ -7,6 +7,18 @@
 python main.py
 ```
 
+## Uruchomienie gry 3D (Ursina)
+
+```bash
+python ursina_3d/main.py
+```
+
+## Instalacja zależności
+
+```bash
+pip install -r requirements.txt
+```
+
 ## Testy
 
 ```bash
